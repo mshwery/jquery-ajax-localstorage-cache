@@ -12,37 +12,31 @@
     },
     remove: function(url) {
       delete this.active[ url ];
-    },
-    // abort existing requests
-    abort: function(url) {
-      if ( this.active[ url ] ) {
-        this.active[ url ].abort();
-      }
     }
-
   };
 
   $.ajaxPrefilter(function( options, originalOptions, jqXHR ) {
 
-    if ( options.abortOnRetry ) {
-      // if a matching request to the same url is
-      // already happening then we should abort it
-      // and let the most recent one through
-      requests.abort( options.url );
-    }
 
-    // add new request to our hash
-    requests.add( options.url, jqXHR );
+    if ( options.preventDuplicates ) {
+      // Duplicate request? Abort!
+      if ( requests.active[ options.url ] ) {
+        jqXHR.abort();
+      } else {
+        // add new request to hash
+        requests.add( options.url, jqXHR );
+      }
 
-    if ( options.complete ) {
-      options.realcomplete = options.complete;
+      // Remove completed requests from our hash
+      if ( options.complete ) {
+        options.realcomplete = options.complete;
+      }
+      options.complete = function( data, status ) {
+        requests.remove( options.url );
+        // call the original complete callback
+        if ( options.realcomplete ) options.realcomplete( data, status );
+      };
     }
-    options.complete = function( data, status ) {
-      // remove completed requests from our hash
-      requests.remove( options.url );
-      // call the original complete callback
-      if ( options.realcomplete ) options.realcomplete( data, status );
-    };
 
     // No connection?
     // Get it from cache
